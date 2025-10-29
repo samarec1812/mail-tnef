@@ -1,6 +1,7 @@
 package tnef
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/teamwork/test"
@@ -40,60 +41,91 @@ func TestAttachments(t *testing.T) {
 		//	"boot.ini",
 		//	"data-before-name-body.rtf",
 		//}},
-		//{"garbage-at-end", []string{}, ""},
-		////{"long-filename", []string{
-		////	"long-filename-body.rtf",
-		////}},
-		////{"missing-filenames", []string{
-		////	"missing-filenames-body.rtf",
-		////}},
-		//{"multi-name-property", []string{}, ""},
-		////{"multi-value-attribute", []string{
-		////	"208225__5_seconds__Voice_Mail.mp3",
-		////	"multi-value-attribute-body.rtf",
-		////}, ""},
-		//{"one-file", []string{
-		//	"AUTHORS",
-		//}, ""},
-		////{"rtf", []string{
-		////	"rtf-body.rtf",
-		////}},
-		////{"triples", []string{
-		////	"triples-body.rtf",
-		////}},
-		//{"two-files", []string{
-		//	"AUTHORS",
-		//	"README",
-		//}, ""},
-		//{"unicode-mapi-attr-name", []string{
-		//	"spaconsole2.cfg",
-		//	"image001.png",
-		//	"image002.png",
-		//	"image003.png",
-		//}, ""},
-		//{"unicode-mapi-attr", []string{
-		//	"example.dat",
-		//}, ""},
-		//
-		//// Invalid files.
-		//{"badchecksum", nil, ErrNoMarker.Error()},
+		{"garbage-at-end", []string{}, ""},
+		//{"long-filename", []string{
+		//	"long-filename-body.rtf",
+		//}},
+		//{"missing-filenames", []string{
+		//	"missing-filenames-body.rtf",
+		//}},
+		{"multi-name-property", []string{}, ""},
+		//{"multi-value-attribute", []string{
+		//	"208225__5_seconds__Voice_Mail.mp3",
+		//	"multi-value-attribute-body.rtf",
+		//}},
+		{"one-file", []string{
+			"AUTHORS",
+		}, ""},
+		//{"rtf", []string{
+		//	"rtf-body.rtf",
+		//}},
+		//{"triples", []string{
+		//	"triples-body.rtf",
+		//}},
+		{"two-files", []string{
+			"AUTHORS",
+			"README",
+		}, ""},
+		{"unicode-mapi-attr-name", []string{
+			"spaconsole2.cfg",
+			"image001.png",
+			"image002.png",
+			"image003.png",
+		}, ""},
+		{"unicode-mapi-attr", []string{
+			"example.dat",
+		}, ""},
+
+		// Invalid files.
+		{"badchecksum", nil, ErrNoMarker.Error()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
 			out, err := Decode(test.Read(t, "./testdata", tt.in+".tnef"))
+			if !test.ErrorContains(err, tt.wantErr) {
+				t.Fatalf("wrong err\ngot:  %v\nwant: %v", err, tt.wantErr)
+			}
 			if err != nil {
 				return
 			}
-			//fmt.Println(len(out.Attributes))
-			out.GetAttachmentsInfo()
-			//if !test.ErrorContains(err, tt.wantErr) {
-			//	t.Fatalf("wrong err\ngot:  %v\nwant: %v", err, tt.wantErr)
-			//}
-			//if err != nil {
-			//	return
-			//}
-			//
+			for _, att := range out.Attachments {
+				for _, prop := range att.Properties.Values {
+					if prop.TagId == MAPIAttachMethod {
+						fmt.Println("METHOD: ", prop.TagId, prop.Data)
+					}
+					if prop.TagId == MAPIAttachSize {
+						fmt.Println("Size: ", prop.TagId, prop.Data)
+					}
+					if prop.TagId == MAPIAttachLongFilename {
+						fmt.Println("LongFilename: ", prop.Data)
+					}
+					if prop.TagId == MAPIAttachTransportName {
+						fmt.Println("Transport: ", prop.Data)
+					}
+					//if prop.PropIDType == 2 {
+					//	fmt.Println("Type: ", prop.TagType, prop.Data)
+					//}
+				}
+				fmt.Println("Title: ", att.Title, att.Name0, att.Name1)
+				//if att.Title != "" {
+				//	result := make(map[string]string)
+				//	lastName := -1
+				//
+				//	for i := 0; i < 10; i++ {
+				//		if att.Title != "" {
+				//			lastName = i
+				//			itemName := fmt.Sprintf("Name%d", i)
+				//			result[itemName] = att.Title[i]
+				//		}
+				//	}
+				//
+				//	if lastName >= 0 {
+				//		result["Name"] = tmp_body.name[lastName]
+				//	}
+				//}
+			}
+
 			//if len(out.Attachments) != len(tt.wantAttachments) {
 			//	t.Errorf("wrong length; want %v, got %v",
 			//		len(tt.wantAttachments), len(out.Attachments))

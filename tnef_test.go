@@ -17,11 +17,11 @@ func TestAttachments(t *testing.T) {
 			"ZAPPA_~2.JPG",
 			"bookmark.htm",
 		}, ""},
-		// will panic!
+		//will panic!
 		//{"panic", []string{
 		//	"ZAPPA_~2.JPG",
 		//	"bookmark.htm",
-		//}},
+		//}, ""},
 		//{"MAPI_ATTACH_DATA_OBJ", []string{
 		//	"VIA_Nytt_1402.doc",
 		//	"VIA_Nytt_1402.pdf",
@@ -89,42 +89,44 @@ func TestAttachments(t *testing.T) {
 			if err != nil {
 				return
 			}
-			for _, att := range out.Attachments {
-				for _, prop := range att.Properties.Values {
-					if prop.TagId == MAPIAttachMethod {
-						fmt.Println("METHOD: ", prop.TagId, prop.Data)
-					}
-					if prop.TagId == MAPIAttachSize {
-						fmt.Println("Size: ", prop.TagId, prop.Data)
-					}
-					if prop.TagId == MAPIAttachLongFilename {
-						fmt.Println("LongFilename: ", prop.Data)
-					}
-					if prop.TagId == MAPIAttachTransportName {
-						fmt.Println("Transport: ", prop.Data)
-					}
-					//if prop.PropIDType == 2 {
-					//	fmt.Println("Type: ", prop.TagType, prop.Data)
-					//}
-				}
-				fmt.Println("Title: ", att.Title, att.Name0, att.Name1)
-				//if att.Title != "" {
-				//	result := make(map[string]string)
-				//	lastName := -1
-				//
-				//	for i := 0; i < 10; i++ {
-				//		if att.Title != "" {
-				//			lastName = i
-				//			itemName := fmt.Sprintf("Name%d", i)
-				//			result[itemName] = att.Title[i]
-				//		}
-				//	}
-				//
-				//	if lastName >= 0 {
-				//		result["Name"] = tmp_body.name[lastName]
-				//	}
-				//}
-			}
+			arr := out.GetAttachmentsInfo()
+
+			fmt.Println(arr)
+			//for _, att := range out.Attachments {
+			//	for _, prop := range att.Properties.Values {
+			//		if prop.TagId == MAPIAttachMethod {
+			//			fmt.Println("METHOD: ", prop.TagId, prop.Data)
+			//		}
+			//		if prop.TagId == MAPIAttachSize {
+			//			fmt.Println("Size: ", prop.TagId, prop.Data)
+			//		}
+			//		if prop.TagId == MAPIAttachLongFilename {
+			//			fmt.Println("LongFilename: ", prop.Data)
+			//		}
+			//		if prop.TagId == MAPIAttachTransportName {
+			//			fmt.Println("Transport: ", prop.Data)
+			//		}
+			//		//if prop.PropIDType == 2 {
+			//		//	fmt.Println("Type: ", prop.TagType, prop.Data)
+			//		//}
+			//	}
+			//	fmt.Println("Title: ", att.Title, att.Name0, att.Name1)
+			//if att.Title != "" {
+			//	result := make(map[string]string)
+			//	lastName := -1
+			//
+			//	for i := 0; i < 10; i++ {
+			//		if att.Title != "" {
+			//			lastName = i
+			//			itemName := fmt.Sprintf("Name%d", i)
+			//			result[itemName] = att.Title[i]
+			//		}
+			//	}
+			//
+			//	if lastName >= 0 {
+			//		result["Name"] = tmp_body.name[lastName]
+			//	}
+			//}
 
 			//if len(out.Attachments) != len(tt.wantAttachments) {
 			//	t.Errorf("wrong length; want %v, got %v",

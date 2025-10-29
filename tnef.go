@@ -712,3 +712,56 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 	return list, nil
 }
+
+type AttachmentsInfo struct {
+	Size   string
+	Method bool
+	Name   string
+}
+
+func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
+	res := make([]AttachmentsInfo, 0, len(dt.Attachments))
+
+	for _, att := range dt.Attachments {
+		info := AttachmentsInfo{}
+		for _, prop := range att.Properties.Values {
+			if prop.TagId == MAPIAttachMethod {
+				fmt.Println("METHOD: ", prop.TagId, prop.Data)
+				info.Method = prop.Data != 0
+			}
+			if prop.TagId == MAPIAttachSize {
+				fmt.Println("Size: ", prop.TagId, prop.Data)
+				info.Size = fmt.Sprint(prop.Data)
+			}
+			if prop.TagId == MAPIAttachLongFilename {
+				fmt.Println("LongFilename: ", prop.Data)
+				info.Name = prop.Data.(string)
+			}
+			if prop.TagId == MAPIAttachTransportName {
+				fmt.Println("Transport: ", prop.Data)
+			}
+			//if prop.PropIDType == 2 {
+			//	fmt.Println("Type: ", prop.TagType, prop.Data)
+			//}
+		}
+		res = append(res, info)
+		fmt.Println("Title: ", att.Title, att.Name0, att.Name1)
+		//if att.Title != "" {
+		//	result := make(map[string]string)
+		//	lastName := -1
+		//
+		//	for i := 0; i < 10; i++ {
+		//		if att.Title != "" {
+		//			lastName = i
+		//			itemName := fmt.Sprintf("Name%d", i)
+		//			result[itemName] = att.Title[i]
+		//		}
+		//	}
+		//
+		//	if lastName >= 0 {
+		//		result["Name"] = tmp_body.name[lastName]
+		//	}
+		//}
+	}
+	return res
+}

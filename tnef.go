@@ -4,7 +4,8 @@ package tnef
 import (
 	"bytes"
 	"errors"
-	"io/ioutil"
+	"os"
+	"reflect"
 	"strings"
 	//"unicode/utf8"
 	"fmt"
@@ -179,7 +180,7 @@ func (a *Attachment) addAttr(obj tnefObject) {
 // DecodeFile is a utility function that reads the file into memory
 // before calling the normal Decode function on the data.
 func DecodeFile(path string) (*Data, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -430,11 +431,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += r
 			}
 			v.Data = tmp
-			v.DataType = "int16"
+			v.DataType = reflect.Int16.String()
 		case 0x0003: //TypeInt32
 			v.Data = leReader.Int32(data[offset : offset+4]) // has padd x00 at the end
 			offset += 4
-			v.DataType = "int32"
+			v.DataType = reflect.Int32.String()
 		case 0x1003: //TypeMVInt32
 			tmp := []int32{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
@@ -444,11 +445,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 4
 			}
 			v.Data = tmp
-			v.DataType = "int32"
+			v.DataType = reflect.Int32.String()
 		case 0x0004: //TypeFlt32
 			v.Data = leReader.Float32(data[offset : offset+4])
 			offset += 4
-			v.DataType = "float32"
+			v.DataType = reflect.Float32.String()
 		case 0x1004: //TypeMVFlt32
 			tmp := []float32{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
@@ -458,11 +459,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 4
 			}
 			v.Data = tmp
-			v.DataType = "float32"
+			v.DataType = reflect.Float32.String()
 		case 0x0005: //TypeFlt64
 			v.Data = leReader.Float64(data[offset : offset+8])
 			offset += 8
-			v.DataType = "float64"
+			v.DataType = reflect.Float64.String()
 		case 0x1005: //TypeMVFlt64
 			tmp := []float64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
@@ -472,11 +473,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 8
 			}
 			v.Data = tmp
-			v.DataType = "float64"
+			v.DataType = reflect.Float64.String()
 		case 0x0006: //TypeCurrency  Signed 64-bit
 			v.Data = leReader.Int64(data[offset : offset+8]) // has padd x00 at the end
 			offset += 8
-			v.DataType = "int64"
+			v.DataType = reflect.Int64.String()
 		case 0x1006: //TypeMVCurrency  Signed 64-bit
 			tmp := []int64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
@@ -486,11 +487,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 8
 			}
 			v.Data = tmp
-			v.DataType = "int64"
+			v.DataType = reflect.Int64.String()
 		case 0x0007: //TypeAppTime
 			v.Data = leReader.Float64(data[offset : offset+8]) // has padd x00 at the end
 			offset += 8
-			v.DataType = "float64"
+			v.DataType = reflect.Float64.String()
 		case 0x1007: //TypeMVAppTime
 			tmp := []float64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
@@ -500,7 +501,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 8
 			}
 			v.Data = tmp
-			v.DataType = "float64"
+			v.DataType = reflect.Float64.String()
 		case 0x000B: //TypeBoolean - 16 bits
 			v.Data = leReader.Int16(data[offset:offset+4]) > 0 // has padd x00 at the end
 			offset += 4
@@ -537,7 +538,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 		case 0x0014: //TypeInt64
 			v.Data = leReader.Int64(data[offset : offset+8]) // has padd x00 at the end
 			offset += 8
-			v.DataType = "int64"
+			v.DataType = reflect.Int64.String()
 		case 0x1014: //TypeMVInt64
 			tmp := []int64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
@@ -547,7 +548,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 8
 			}
 			v.Data = tmp
-			v.DataType = "int64"
+			v.DataType = reflect.Int64.String()
 		case 0x001E, 0x101E: //TypeString8, TypeMVString8 -  8-bit character string with terminating null character. - multibyte character set (MBCS):
 			// ATTOEMCODEPAGE???
 			noOfValues := leReader.Uint32(data[offset : offset+4]) // should be always 1
@@ -598,7 +599,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			} else {
 				v.Data = tmp
 			}
-			v.DataType = "string"
+			v.DataType = reflect.String.String()
 		case 0x001F, 0x101F:
 			//TypeUnicode (unicode utf16 LE string), TypeMVUnicode (array of unicode utf16 LE string)  - UTF-16LE or variant character string with terminating 2-byte null character.
 			noOfValues := leReader.Uint32(data[offset : offset+4])
@@ -638,7 +639,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			} else {
 				v.Data = tmp
 			}
-			v.DataType = "string"
+			v.DataType = reflect.String.String()
 		case 0x0040: //TypeSystime - FILETIME (a PtypTime value, as specified in [MS-OXCDATA] section 2.11.1)
 			v.Data = leReader.Uint64(data[offset : offset+8])
 			offset += 8

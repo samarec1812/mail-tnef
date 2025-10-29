@@ -3,7 +3,9 @@ package tnef // import "github.com/teamwork/tnef"
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"strconv"
 	"strings"
 )
 
@@ -61,8 +63,25 @@ type tnefObject struct {
 // Attachment contains standard attachments that are embedded
 // within the TNEF file, with the name and data of the file extracted.
 type Attachment struct {
-	Title string
-	Data  []byte
+	Title  string
+	Data   []byte
+	Method int
+	Pos    string
+	Size   int
+}
+
+// check tnef: $VAR1 = { 'Size' => '1887849', 'Name' => '1>@O.', 'Extension' => '.',
+//
+//	'Name0' => '����.png', 'Pos' => '2721595', 'Name2' => '1>@O.', 'Method' => 1, 'Name1' => 'D' };
+type AttachmentData struct {
+	Size   int
+	Name   string
+	Ext    string
+	Name0  string
+	Name1  string
+	Name2  string
+	Pos    string
+	Method int
 }
 
 // ErrNoMarker signals that the file did not start with the fixed TNEF marker,
@@ -81,10 +100,27 @@ type Data struct {
 func (a *Attachment) addAttr(obj tnefObject) {
 	switch obj.Name {
 	case ATTATTACHTITLE:
+		fmt.Println("ATTACH: ", strings.Replace(string(obj.Data), "\x00", "", -1))
 		a.Title = strings.Replace(string(obj.Data), "\x00", "", -1)
 	case ATTATTACHDATA:
 		a.Data = obj.Data
+	//case ATTATTACHMETAFILE:
+	//fmt.Println("META: ", strings.Replace(string(obj.Data), "\x11", "", -1))
+	case ATTATTACHMENT:
+		fmt.Println("ATTACHMENT: ", strings.Replace(string(obj.Data), "\x00", "", -1))
+
+		//default:
+		//	fmt.Println(obj.Name)
+
 	}
+}
+
+func (data *Data) GetAttachmentsInfo() {
+	for _, att := range data.Attachments {
+
+		fmt.Println("METHOD: ", att.Method)
+	}
+
 }
 
 // DecodeFile is a utility function that reads the file into memory
@@ -115,7 +151,7 @@ func Decode(data []byte) (*Data, error) {
 	for offset < len(data) {
 		obj := decodeTNEFObject(data[offset:])
 		offset += obj.Length
-
+		fmt.Println(obj.Name)
 		if obj.Name == ATTATTACHRENDDATA {
 			attachment = new(Attachment)
 			tnef.Attachments = append(tnef.Attachments, attachment)
@@ -129,12 +165,22 @@ func Decode(data []byte) (*Data, error) {
 			}
 
 			// Get the body property if it's there
-			for _, attr := range tnef.Attributes {
+			for i, attr := range tnef.Attributes {
 				switch attr.Name {
 				case MAPIBody:
 					tnef.Body = attr.Data
 				case MAPIBodyHTML:
 					tnef.BodyHTML = attr.Data
+				case MAPIAttachMethod:
+					value, _ := strconv.ParseInt(string(attr.Data[0]), 10, 64)
+					fmt.Println("VALUE: ", value)
+					tnef.Attachments[i].Method = int(value)
+				case MAPIAttachDataObj:
+					tnef.Attachments[i].Pos = fmt.Sprint(attr.GUID)
+					fmt.Println("POS: ", tnef.Attachments[i].Pos)
+					//default:
+
+					//fmt.Println("Unknown Attribute: ", attr.GUID)
 				}
 			}
 		}

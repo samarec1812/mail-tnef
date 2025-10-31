@@ -72,6 +72,7 @@ type Attachment struct {
 	Data       []byte
 	Properties MsgPropertyList
 	Names      []string
+	Size       int
 }
 
 /**
@@ -170,6 +171,7 @@ func (a *Attachment) addAttr(obj tnefObject) {
 		putNames(a.Names, a.Title)
 	case ATTATTACHDATA:
 		a.Data = obj.Data
+		a.Size = len(a.Data)
 	case ATTATTACHTRANSPORTFILENAME:
 		putNames(a.Names, string(obj.Data))
 	default:
@@ -735,8 +737,11 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 				info.Method = prop.Data != 0
 			}
 			if prop.TagId == MAPIAttachSize {
-				fmt.Println("Size: ", prop.TagId, prop.Data)
+				fmt.Printf("Size: #1: %v, #2: %v\n", prop.Data, att.Size)
 				info.Size = fmt.Sprint(prop.Data)
+				if info.Size == "" {
+					info.Size = fmt.Sprint(att.Size)
+				}
 			}
 			if prop.TagId == MAPIAttachLongFilename {
 				putNames(names, prop.Data.(string))
@@ -744,9 +749,6 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 			if prop.TagId == MAPIAttachTransportName {
 				putNames(names, prop.Data.(string))
 			}
-			//if prop.PropIDType == 2 {
-			//	fmt.Println("Type: ", prop.TagType, prop.Data)
-			//}
 		}
 
 		lastName := -1

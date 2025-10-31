@@ -17,6 +17,7 @@ const (
 	tnefSignature = 0x223e9f78
 	//lvlMessage    = 0x01
 	lvlAttachment = 0x02
+	maxCountNames = 10
 )
 
 // These can be used to figure out the type of attribute
@@ -68,11 +69,9 @@ type tnefObject struct {
 // within the TNEF file, with the name and data of the file extracted.
 type Attachment struct {
 	Title      string
-	Name0      string
-	Name1      string
-	Name2      string
 	Data       []byte
 	Properties MsgPropertyList
+	Names      []string
 }
 
 /**
@@ -168,10 +167,11 @@ func (a *Attachment) addAttr(obj tnefObject) {
 	switch obj.Name {
 	case ATTATTACHTITLE:
 		a.Title = strings.Replace(string(obj.Data), "\x00", "", -1)
+		putNames(a.Names, a.Title)
 	case ATTATTACHDATA:
 		a.Data = obj.Data
 	case ATTATTACHTRANSPORTFILENAME:
-		a.Name0 = string(obj.Data)
+		putNames(a.Names, string(obj.Data))
 	default:
 		//fmt.Printf("ATT Flag: %x Value: %v\r\n\r\n", obj.Name, string(obj.Data))
 	}
@@ -225,7 +225,9 @@ func Decode(data []byte) (*Data, error) {
 			FileDataDefault= %x00.00.00.00
 			FileDataMacBinary=%x01.00.00.00
 			*/
-			attachment = new(Attachment)
+			attachment = &Attachment{
+				Names: make([]string, 10),
+			}
 			tnef.Attachments = append(tnef.Attachments, attachment)
 
 		} else if obj.Level == lvlAttachment {
@@ -717,13 +719,15 @@ type AttachmentsInfo struct {
 	Size   string
 	Method bool
 	Name   string
+	Names  []string
 }
 
 func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 	res := make([]AttachmentsInfo, 0, len(dt.Attachments))
 
 	for _, att := range dt.Attachments {
-		info := AttachmentsInfo{}
+		info := AttachmentsInfo{Names: make([]string, maxCountNames)}
+		copy(info.Names, att.Names)
 		for _, prop := range att.Properties.Values {
 			if prop.TagId == MAPIAttachMethod {
 				fmt.Println("METHOD: ", prop.TagId, prop.Data)
@@ -734,18 +738,17 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 				info.Size = fmt.Sprint(prop.Data)
 			}
 			if prop.TagId == MAPIAttachLongFilename {
-				fmt.Println("LongFilename: ", prop.Data)
-				info.Name = prop.Data.(string)
+				putNames(info.Names, prop.Data.(string))
 			}
 			if prop.TagId == MAPIAttachTransportName {
-				fmt.Println("Transport: ", prop.Data)
+				putNames(info.Names, prop.Data.(string))
 			}
 			//if prop.PropIDType == 2 {
 			//	fmt.Println("Type: ", prop.TagType, prop.Data)
 			//}
 		}
 		res = append(res, info)
-		fmt.Println("Title: ", att.Title, att.Name0, att.Name1)
+		fmt.Println("Title: ", att.Names)
 		//if att.Title != "" {
 		//	result := make(map[string]string)
 		//	lastName := -1
@@ -764,4 +767,13 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 		//}
 	}
 	return res
+}
+
+func putNames(names []string, newName string) {
+	for i := 0; i < 10; i++ {
+		if names[i] == "" {
+			names[i] = newName
+			break
+		}
+	}
 }

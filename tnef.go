@@ -716,18 +716,19 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 }
 
 type AttachmentsInfo struct {
-	Size   string
-	Method bool
-	Name   string
-	Names  []string
+	Size     string
+	Method   bool
+	Name     string
+	MapNames map[string]string
 }
 
 func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 	res := make([]AttachmentsInfo, 0, len(dt.Attachments))
 
 	for _, att := range dt.Attachments {
-		info := AttachmentsInfo{Names: make([]string, maxCountNames)}
-		copy(info.Names, att.Names)
+		names := make([]string, len(att.Names))
+		info := AttachmentsInfo{MapNames: make(map[string]string, len(att.Names))}
+		copy(names, att.Names)
 		for _, prop := range att.Properties.Values {
 			if prop.TagId == MAPIAttachMethod {
 				fmt.Println("METHOD: ", prop.TagId, prop.Data)
@@ -738,33 +739,28 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 				info.Size = fmt.Sprint(prop.Data)
 			}
 			if prop.TagId == MAPIAttachLongFilename {
-				putNames(info.Names, prop.Data.(string))
+				putNames(names, prop.Data.(string))
 			}
 			if prop.TagId == MAPIAttachTransportName {
-				putNames(info.Names, prop.Data.(string))
+				putNames(names, prop.Data.(string))
 			}
 			//if prop.PropIDType == 2 {
 			//	fmt.Println("Type: ", prop.TagType, prop.Data)
 			//}
 		}
+
+		lastName := -1
+		for i := 0; i < maxCountNames; i++ {
+			if names[i] != "" {
+				lastName = i
+				info.MapNames[fmt.Sprintf("Name%d", i)] = names[i]
+			}
+		}
+		if lastName > 0 {
+			info.MapNames["Name"] = names[lastName]
+		}
 		res = append(res, info)
 		fmt.Println("Title: ", att.Names)
-		//if att.Title != "" {
-		//	result := make(map[string]string)
-		//	lastName := -1
-		//
-		//	for i := 0; i < 10; i++ {
-		//		if att.Title != "" {
-		//			lastName = i
-		//			itemName := fmt.Sprintf("Name%d", i)
-		//			result[itemName] = att.Title[i]
-		//		}
-		//	}
-		//
-		//	if lastName >= 0 {
-		//		result["Name"] = tmp_body.name[lastName]
-		//	}
-		//}
 	}
 	return res
 }

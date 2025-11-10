@@ -2,11 +2,14 @@ package tnef
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
-
-	"github.com/teamwork/test"
 )
 
+//nolint:funlen
 func TestAttachments(t *testing.T) {
 	tests := []struct {
 		in              string
@@ -17,51 +20,50 @@ func TestAttachments(t *testing.T) {
 			"ZAPPA_~2.JPG",
 			"bookmark.htm",
 		}, ""},
-		//will panic!
-		//{"panic", []string{
-		//	"ZAPPA_~2.JPG",
-		//	"bookmark.htm",
-		//}, ""},
-		//{"MAPI_ATTACH_DATA_OBJ", []string{
-		//	"VIA_Nytt_1402.doc",
-		//	"VIA_Nytt_1402.pdf",
-		//	"VIA_Nytt_14021.htm",
-		//	"MAPI_ATTACH_DATA_OBJ-body.rtf",
-		//}},
-		//{"MAPI_OBJECT", []string{
-		//	"Untitled_Attachment",
-		//	"MAPI_OBJECT-body.rtf",
-		//}},
-		//{"body", []string{
-		//	"body-body.html",
-		//}},
-		//{"data-before-name", []string{
-		//	"AUTOEXEC.BAT",
-		//	"CONFIG.SYS",
-		//	"boot.ini",
-		//	"data-before-name-body.rtf",
-		//}},
+		{"panic", []string{
+			"ZAPPA_~2.JPG",
+			"bookmark.htm",
+		}, ""},
+		{"MAPI_ATTACH_DATA_OBJ", []string{
+			"VIA_Nytt_1402.doc",
+			"VIA_Nytt_1402.pdf",
+			"VIA_Nytt_14021.htm",
+			"MAPI_ATTACH_DATA_OBJ-body.rtf",
+		}, ""},
+		{"MAPI_OBJECT", []string{
+			"Untitled_Attachment",
+			"MAPI_OBJECT-body.rtf",
+		}, ""},
+		{"body", []string{
+			"body-body.html",
+		}, ""},
+		{"data-before-name", []string{
+			"AUTOEXEC.BAT",
+			"CONFIG.SYS",
+			"boot.ini",
+			"data-before-name-body.rtf",
+		}, ""},
 		{"garbage-at-end", []string{}, ""},
-		//{"long-filename", []string{
-		//	"long-filename-body.rtf",
-		//}},
-		//{"missing-filenames", []string{
-		//	"missing-filenames-body.rtf",
-		//}},
+		{"long-filename", []string{
+			"long-filename-body.rtf",
+		}, ""},
+		{"missing-filenames", []string{
+			"missing-filenames-body.rtf",
+		}, ""},
 		{"multi-name-property", []string{}, ""},
-		//{"multi-value-attribute", []string{
-		//	"208225__5_seconds__Voice_Mail.mp3",
-		//	"multi-value-attribute-body.rtf",
-		//}},
+		{"multi-value-attribute", []string{
+			"208225__5_seconds__Voice_Mail.mp3",
+			"multi-value-attribute-body.rtf",
+		}, ""},
 		{"one-file", []string{
 			"AUTHORS",
 		}, ""},
-		//{"rtf", []string{
-		//	"rtf-body.rtf",
-		//}},
-		//{"triples", []string{
-		//	"triples-body.rtf",
-		//}},
+		{"rtf", []string{
+			"rtf-body.rtf",
+		}, ""},
+		{"triples", []string{
+			"triples-body.rtf",
+		}, ""},
 		{"two-files", []string{
 			"AUTHORS",
 			"README",
@@ -78,73 +80,70 @@ func TestAttachments(t *testing.T) {
 
 		// Invalid files.
 		{"badchecksum", nil, ErrNoMarker.Error()},
+		{"empty-file", nil, ErrNoMarker.Error()},
+		{"winmail.dat", nil, ErrNoMarker.Error()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
-			out, err := Decode(test.Read(t, "./testdata", tt.in+".tnef"))
-			if !test.ErrorContains(err, tt.wantErr) {
+			out, err := Decode(read(t, "./testdata", tt.in+".tnef"))
+			if !errorContains(err, tt.wantErr) {
 				t.Fatalf("wrong err\ngot:  %v\nwant: %v", err, tt.wantErr)
 			}
 			if err != nil {
+				fmt.Println(err)
 				return
 			}
 			arr := out.GetAttachmentsInfo()
-
 			fmt.Println(arr)
-			//for _, att := range out.Attachments {
-			//	for _, prop := range att.Properties.Values {
-			//		if prop.TagId == MAPIAttachMethod {
-			//			fmt.Println("METHOD: ", prop.TagId, prop.Data)
-			//		}
-			//		if prop.TagId == MAPIAttachSize {
-			//			fmt.Println("Size: ", prop.TagId, prop.Data)
-			//		}
-			//		if prop.TagId == MAPIAttachLongFilename {
-			//			fmt.Println("LongFilename: ", prop.Data)
-			//		}
-			//		if prop.TagId == MAPIAttachTransportName {
-			//			fmt.Println("Transport: ", prop.Data)
-			//		}
-			//		//if prop.PropIDType == 2 {
-			//		//	fmt.Println("Type: ", prop.TagType, prop.Data)
-			//		//}
-			//	}
-			//	fmt.Println("Title: ", att.Title, att.Name0, att.Name1)
-			//if att.Title != "" {
-			//	result := make(map[string]string)
-			//	lastName := -1
-			//
-			//	for i := 0; i < 10; i++ {
-			//		if att.Title != "" {
-			//			lastName = i
-			//			itemName := fmt.Sprintf("Name%d", i)
-			//			result[itemName] = att.Title[i]
-			//		}
-			//	}
-			//
-			//	if lastName >= 0 {
-			//		result["Name"] = tmp_body.name[lastName]
-			//	}
-			//}
 
-			//if len(out.Attachments) != len(tt.wantAttachments) {
-			//	t.Errorf("wrong length; want %v, got %v",
-			//		len(tt.wantAttachments), len(out.Attachments))
-			//}
-			//
-			//titles := []string{}
-			//for _, a := range out.Attachments {
-			//	titles = append(titles, a.Title)
-			//	//if len(a.Data) == 0 {
-			//	//	t.Error("len(a.Data) is 0")
-			//	//}
-			//}
-			//for _, want := range tt.wantAttachments {
-			//	if !sliceutil.InStringSlice(titles, want) {
-			//		t.Errorf("did not find %#v in the attachments: %#v", want, titles)
-			//	}
-			//}
+			if len(out.Attachments) != len(tt.wantAttachments) {
+				t.Errorf("wrong length; want %v, got %v",
+					len(tt.wantAttachments), len(out.Attachments))
+			}
+
+			titles := []string{}
+			for _, a := range out.Attachments {
+				titles = append(titles, a.Title)
+				if len(a.Data) == 0 {
+					t.Error("len(a.Data) is 0")
+				}
+			}
+			for _, want := range tt.wantAttachments {
+				if !slices.Contains(titles, want) {
+					t.Errorf("did not find %#v in the attachments: %#v", want, titles)
+				}
+			}
 		})
 	}
+}
+
+func inStringSlice(list []string, str string) bool {
+	for _, item := range list {
+		if item == str {
+			return true
+		}
+	}
+	return false
+}
+
+func errorContains(out error, want string) bool {
+	if out == nil {
+		return want == ""
+	}
+	if want == "" {
+		return false
+	}
+	return strings.Contains(out.Error(), want)
+}
+
+func read(t *testing.T, paths ...string) []byte {
+	t.Helper()
+
+	path := filepath.Join(paths...)
+	file, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("cannot read %v: %v", path, err)
+	}
+	return file
 }

@@ -1,4 +1,4 @@
-name: mail_tnef
+name: tnef
 
 on:
     push:

@@ -12,6 +12,7 @@ type MAPIAttribute struct {
 	GUID int
 }
 
+//nolint:all
 func decodeMapi(data []byte) ([]MAPIAttribute, error) {
 	var attrs []MAPIAttribute
 	dataLen := len(data)
@@ -46,6 +47,7 @@ func decodeMapi(data []byte) ([]MAPIAttribute, error) {
 			offset += 4
 
 			if kind == 0 {
+				attrName = byteToInt(data[offset : offset+4])
 				offset += 4
 			} else if kind == 1 {
 				iidLen := byteToInt(data[offset : offset+4])
@@ -78,7 +80,12 @@ func decodeMapi(data []byte) ([]MAPIAttribute, error) {
 			}
 
 			// Read the data in
-			attrData = append(attrData, data[offset:offset+length]...)
+			end := offset + length
+			if end >= len(data) {
+				attrData = append(attrData, data[offset:]...)
+			} else {
+				attrData = append(attrData, data[offset:offset+length]...)
+			}
 
 			offset += length
 			offset += (-length & 3)
@@ -109,8 +116,8 @@ func getTypeSize(attrType int) int {
 const (
 	mvFlag = 0x1000 // OR with type means multiple values
 
-	//szmapiUnspecified   = 0x0000 //# MAPI Unspecified
-	//szmapiNull          = 0x0001 //# MAPI null property
+	// szmapiUnspecified   = 0x0000 //# MAPI Unspecified
+	// szmapiNull          = 0x0001 //# MAPI null property
 	szmapiShort         = 0x0002 //# MAPI short (signed 16 bits)
 	szmapiInt           = 0x0003 //# MAPI integer (signed 32 bits)
 	szmapiFloat         = 0x0004 //# MAPI float (4 bytes)
@@ -123,11 +130,11 @@ const (
 	szmapiInt8byte      = 0x0014 //# MAPI 8 byte signed int
 	szmapiString        = 0x001e //# MAPI string
 	szmapiUnicodeString = 0x001f //# MAPI unicode-string (null terminated)
-	//szmapiPtSystime     = 0x001e //# MAPI time (after 2038/01/17 22:14:07 or before 1970/01/01 00:00:00)
+	// szmapiPtSystime     = 0x001e //# MAPI time (after 2038/01/17 22:14:07 or before 1970/01/01 00:00:00)
 	szmapiSystime = 0x0040 //# MAPI time (64 bits)
 	szmapiCLSID   = 0x0048 //# MAPI OLE GUID
 	szmapiBinary  = 0x0102 //# MAPI binary
-	//szmapiUnknown = 0x0033
+	// szmapiUnknown = 0x0033
 )
 
 // We can use these constants to find specific types
@@ -327,7 +334,7 @@ const (
 	MAPIHasattach                             = 0x0E1B
 	MAPIBodyCrc                               = 0x0E1C
 	MAPINormalizedSubject                     = 0x0E1D
-	MAPIRtfInSync                             = 0x0E1F //if the RTF body has been synchronized with the contents in the PidTagBody property
+	MAPIRtfInSync                             = 0x0E1F // if the RTF body has been synchronized with the contents in the PidTagBody property
 	MAPIAttachSize                            = 0x0E20
 	MAPIAttachNum                             = 0x0E21
 	MAPIPreprocess                            = 0x0E22

@@ -3,10 +3,10 @@ package tnef
 import (
 	"bytes"
 	"encoding/binary"
+	_ "fmt"
+	_ "strings"
 	"unicode/utf16"
-	//	"unicode/utf8"
-	//	"strings"
-	//	"fmt"
+	_ "unicode/utf8"
 )
 
 func byteToInt(data []byte) int {
@@ -27,6 +27,7 @@ func byteToUInt32(data []byte) uint32 {
 type LittleEndianReader struct {
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) String(b []byte) string {
 	var v string
 	buf := bytes.NewReader(b)
@@ -35,6 +36,8 @@ func (c *LittleEndianReader) String(b []byte) string {
 }
 
 // Int
+//
+//nolint:errcheck
 func (c *LittleEndianReader) Int(b []byte) int {
 	var v int
 	buf := bytes.NewReader(b)
@@ -43,6 +46,8 @@ func (c *LittleEndianReader) Int(b []byte) int {
 }
 
 // UInt
+//
+//nolint:errcheck
 func (c *LittleEndianReader) Uint(b []byte) uint {
 	var v uint
 	buf := bytes.NewReader(b)
@@ -51,6 +56,8 @@ func (c *LittleEndianReader) Uint(b []byte) uint {
 }
 
 // Int = Int32
+//
+//nolint:errcheck
 func (c *LittleEndianReader) Int32(b []byte) int32 {
 	var v int32
 	buf := bytes.NewReader(b)
@@ -59,6 +66,8 @@ func (c *LittleEndianReader) Int32(b []byte) int32 {
 }
 
 // UInt = UInt32
+//
+//nolint:errcheck
 func (c *LittleEndianReader) Uint32(b []byte) uint32 {
 	var v uint32
 	buf := bytes.NewReader(b)
@@ -67,6 +76,8 @@ func (c *LittleEndianReader) Uint32(b []byte) uint32 {
 }
 
 // int64
+//
+//nolint:errcheck
 func (c *LittleEndianReader) Int64(b []byte) int64 {
 	var v int64
 	buf := bytes.NewReader(b)
@@ -75,6 +86,8 @@ func (c *LittleEndianReader) Int64(b []byte) int64 {
 }
 
 // uint64
+//
+//nolint:errcheck
 func (c *LittleEndianReader) Uint64(b []byte) uint64 {
 	var v uint64
 	buf := bytes.NewReader(b)
@@ -82,6 +95,7 @@ func (c *LittleEndianReader) Uint64(b []byte) uint64 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Int16(b []byte) int16 {
 	var v int16
 	buf := bytes.NewReader(b)
@@ -89,6 +103,7 @@ func (c *LittleEndianReader) Int16(b []byte) int16 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Uint16(b []byte) uint16 {
 	var v uint16
 	buf := bytes.NewReader(b)
@@ -96,6 +111,7 @@ func (c *LittleEndianReader) Uint16(b []byte) uint16 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Int8(b []byte) int8 {
 	var v int8
 	buf := bytes.NewReader(b)
@@ -103,6 +119,7 @@ func (c *LittleEndianReader) Int8(b []byte) int8 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Uint8(b []byte) uint8 {
 	var v uint8
 	buf := bytes.NewReader(b)
@@ -110,6 +127,7 @@ func (c *LittleEndianReader) Uint8(b []byte) uint8 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Float32(b []byte) float32 {
 	var v float32
 	buf := bytes.NewReader(b)
@@ -117,6 +135,7 @@ func (c *LittleEndianReader) Float32(b []byte) float32 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Float64(b []byte) float64 {
 	var v float64
 	buf := bytes.NewReader(b)
@@ -124,6 +143,7 @@ func (c *LittleEndianReader) Float64(b []byte) float64 {
 	return v
 }
 
+//nolint:errcheck
 func (c *LittleEndianReader) Boolean(b []byte) bool {
 	var v bool
 	buf := bytes.NewReader(b)
@@ -136,7 +156,7 @@ func (c *LittleEndianReader) Utf16(content []byte, maxBytesToRead int) (converte
 	tmp := []uint16{}
 
 	bytesRead = 0
-	//last2Chars := 0
+	// last2Chars := 0
 	for {
 		tmp = append(tmp, binary.LittleEndian.Uint16(content[bytesRead:]))
 		bytesRead += 2
@@ -154,7 +174,9 @@ func (c *LittleEndianReader) Utf16(content []byte, maxBytesToRead int) (converte
 		// utf8.RuneCountInString(convertedStringToUnicode) -> number of chars
 		// len(convertedStringToUnicode) - number of bytes
 
-		//		fmt.Printf("\r\nRead %v bytes from %v bytes; String Len: %v; Rune Count: %v", bytesRead, len(content), len(convertedStringToUnicode), utf8.RuneCountInString(convertedStringToUnicode))
+		//		fmt.Printf("\r\nRead %v bytes from %v bytes; String Len: %v;
+		//		Rune Count: %v", bytesRead, len(content), len(convertedStringToUnicode),
+		//		utf8.RuneCountInString(convertedStringToUnicode))
 		//		fmt.Printf("\r\nString: %s", convertedStringToUnicode)
 
 		if len(content) <= bytesRead || bytesRead >= maxBytesToRead {
@@ -162,10 +184,11 @@ func (c *LittleEndianReader) Utf16(content []byte, maxBytesToRead int) (converte
 				if (last2Chars >= 2) {
 					convertedStringToUnicode = strings.TrimRight(convertedStringToUnicode, "\x00")
 				}*/
-			//fmt.Printf("\r\n Return Read: %v", bytesRead)
+			// fmt.Printf("\r\n Return Read: %v", bytesRead)
 			break
 		}
-		//fmt.Printf("\r\n  Read: %v from maxLengthToRead %v len: %v str: %v", bytesRead, maxBytesToRead, len(convertedStringToUnicode), convertedStringToUnicode)
+		// fmt.Printf("\r\n  Read: %v from maxLengthToRead %v len: %v str: %v", bytesRead, maxBytesToRead,
+		// len(convertedStringToUnicode), convertedStringToUnicode)
 	}
-	return
+	return convertedStringToUnicode, bytesRead
 }

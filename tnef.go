@@ -3,19 +3,19 @@ package tnef
 
 import (
 	"bytes"
+	_ "encoding/hex"
 	"errors"
+	"fmt"
 	"os"
 	"reflect"
-	"strings"
-	//"unicode/utf8"
-	"fmt"
 	"regexp"
-	//	"encoding/hex"
+	"strings"
+	_ "unicode/utf8"
 )
 
 const (
 	tnefSignature = 0x223e9f78
-	//lvlMessage    = 0x01
+	// lvlMessage    = 0x01
 	lvlAttachment = 0x02
 	maxCountNames = 10
 )
@@ -146,14 +146,14 @@ func (c *Data) GetMapiAttribute(attrId int) (attr *MAPIAttribute) {
  */
 func (c *Data) AttachmentIsMimeRelated(a *Attachment) bool {
 
-	attContentIdAttr := a.GetMapiAttribute(MAPITagAttachContentId)
-	if attContentIdAttr == nil {
+	attContentIDAttr := a.GetMapiAttribute(MAPITagAttachContentId)
+	if attContentIDAttr == nil {
 		return false
 	}
 
-	cid := attContentIdAttr.Data.(string)
+	cid := attContentIDAttr.Data.(string)
 
-	if c.BodyHTML != nil && len(c.BodyHTML) > 0 && cid != "" {
+	if len(c.BodyHTML) > 0 && cid != "" {
 		re := `('|")[\s\t\r\n]*cid[\s\t\r\n]*\:[\s\t\r\n]*` + regexp.QuoteMeta(cid) + `[\s\t\r\n]*('|")`
 		matched, err := regexp.Match(re, c.BodyHTML)
 		if err == nil && matched {
@@ -167,7 +167,7 @@ func (c *Data) AttachmentIsMimeRelated(a *Attachment) bool {
 func (a *Attachment) addAttr(obj tnefObject) {
 	switch obj.Name {
 	case ATTATTACHTITLE:
-		a.Title = strings.Replace(string(obj.Data), "\x00", "", -1)
+		a.Title = strings.ReplaceAll(string(obj.Data), "\x00", "")
 		putNames(a.Names, a.Title)
 	case ATTATTACHDATA:
 		a.Data = obj.Data
@@ -175,7 +175,7 @@ func (a *Attachment) addAttr(obj tnefObject) {
 	case ATTATTACHTRANSPORTFILENAME:
 		putNames(a.Names, string(obj.Data))
 	default:
-		//fmt.Printf("ATT Flag: %x Value: %v\r\n\r\n", obj.Name, string(obj.Data))
+		// fmt.Printf("ATT Flag: %x Value: %v\r\n\r\n", obj.Name, string(obj.Data))
 	}
 }
 
@@ -192,8 +192,10 @@ func DecodeFile(path string) (*Data, error) {
 
 // Decode will accept a stream of bytes in the TNEF format and extract the
 // attachments and body into a Data object.
+//
+//nolint:all
 func Decode(data []byte) (*Data, error) {
-	if byteToInt(data[0:4]) != tnefSignature {
+	if len(data) < 4 || byteToInt(data[0:4]) != tnefSignature {
 		return nil, ErrNoMarker
 	}
 
@@ -204,8 +206,12 @@ func Decode(data []byte) (*Data, error) {
 		Attachments: []*Attachment{},
 	}
 
-	for offset < len(data) {
-		obj := decodeTNEFObject(data[offset:])
+	for {
+		obj, ok := decodeTNEFObject(data[offset:])
+		if !ok {
+			break
+		}
+
 		offset += obj.Length
 
 		if obj.Name == ATTOEMCODEPAGE {
@@ -228,7 +234,7 @@ func Decode(data []byte) (*Data, error) {
 			FileDataMacBinary=%x01.00.00.00
 			*/
 			attachment = &Attachment{
-				Names: make([]string, 10),
+				Names: make([]string, maxCountNames),
 			}
 			tnef.Attachments = append(tnef.Attachments, attachment)
 
@@ -240,30 +246,30 @@ func Decode(data []byte) (*Data, error) {
 
 			if obj.Name == ATTATTACHMENT {
 				/*
-										MAPI ATTR ID: 3616 (0xe20), Type: 0x0003 -> PidTagAttachSize | value: 3285 (bytes)
-										MAPI ATTR ID: 12289 (0x3001), TAG Type: 30 (0x001e) -> PidTagDisplayName (type: 0x001f) | value: image001.jpg (same as PidTagAttachLongFilename)
-										MAPI ATTR ID: 14082 (0x3702), TAG Type: 258 (0x0102) -> PidTagAttachEncoding | value: empty!!?? ->  If the attachment is in MacBinary format, this property is set to
+									MAPI ATTR ID: 3616 (0xe20), Type: 0x0003 -> PidTagAttachSize | value: 3285 (bytes)
+									MAPI ATTR ID: 12289 (0x3001), TAG Type: 30 (0x001e) -> PidTagDisplayName (type: 0x001f) | value: image001.jpg (same as PidTagAttachLongFilename)
+									MAPI ATTR ID: 14082 (0x3702), TAG Type: 258 (0x0102) -> PidTagAttachEncoding | value: empty!!?? ->  If the attachment is in MacBinary format, this property is set to
 					"{0x2A,86,48,86,F7,14,03,0B,01}"; otherwise, it is unset.
-										MAPI ATTR ID: 14083 (0x3703), TAG Type: 30 (0x001e) -> PidTagAttachExtension (type: 0x001e) | value: .jpg
-										MAPI ATTR ID: 14085 (0x3705), TAG Type: 3 (0x0003) -> PidTagAttachMethod | value: 1
-										MAPI ATTR ID: 14087 (0x3707), TAG Type: 30 (0x1e) -> PidTagAttachLongFilename (0x001F) | value: image001.jpg
-										MAPI ATTR ID: 14091 (0x370b), TAG Type: 3 (0x0003) -> PidTagRenderingPosition | value: -1 (-1 e de fapt 0xffffff, decoded as signed) ->  0xFFFFFFFF indicates a hidden attachment that is not to be rendered in the main text
-										MAPI ATTR ID: 14094 (0x370e), TAG Type: 30 (0x001e) -> PidTagAttachMimeTag | value: image/jpeg
-										MAPI ATTR ID: 14098 (0x3712), TAG Type: 30 (0x1e) -> PidTagAttachContentId | value: image001.jpg@01D49162.DB2DC760
-										MAPI ATTR ID: 14100 (0x3714), TAG Type: 3 (0x3) -> PidTagAttachFlags | value: 4 (4 means attRenderedInBody)
-										MAPI ATTR ID: 32762 (0x7ffa), TAG Type: 3 (0x3) -> PidTagAttachmentLinkId| value: 0 (must be 0, if is not overwriten)
-										MAPI ATTR ID: 32763 (0x7ffb), TAG Type: 64 (0x0040) ->	PidTagExceptionStartTime|value: 915151392000000000
-										MAPI ATTR ID: 32764 (0x7ffc), TAG Type: 64 (0x40) -> PidTagExceptionEndTime | value: 915151392000000000
-										MAPI ATTR ID: 32765 (0x7ffd), TAG Type: 3 (0x3) -> PidTagAttachmentFlags | value: 8
-										MAPI ATTR ID: 32766 (0x7ffe), TAG Type: 11 (0xb) -> PidTagAttachmentHidden| value: true
-										MAPI ATTR ID: 32767 (0x7fff), TAG Type: 11 (0xb) -> PidTagAttachmentContactPhoto | value: false
-										MAPI ATTR ID: 3617 (0x0e21), TAG Type: 3 (0x3) -> PidTagAttachNumber | value: 956325
-										MAPI ATTR ID: 4088 (0x0ff8), TAG Type: 258 (0x0102) -> PidTagMappingSignature | value: 28 78 81 160 198 126 89 69 167 247 18 51 167 63 155 237
-										MAPI ATTR ID: 4090 (0x0ffa), TAG Type: 258 (0x0102) -> ??? | value: 28 78 81 160 198 126 89 69 167 247 18 51 167 63 155 237
-										MAPI ATTR ID: 4094 (0xffe), TAG Type: 3 (0x3) -> PidTagObjectType | value: 7 (7 means Attachment object)
-										MAPI ATTR ID: 13325 (0x340d), TAG Type: 3 (0x3) -> PidTagStoreSupportMask | value: 245710845 ( Indicates whether string properties within the .msg file
-											are Unicode-encoded.)
-										MAPI ATTR ID: 13327 (0x340f), TAG Type: 3 (0x3) -> ??? | value: 245710845
+									MAPI ATTR ID: 14083 (0x3703), TAG Type: 30 (0x001e) -> PidTagAttachExtension (type: 0x001e) | value: .jpg
+									MAPI ATTR ID: 14085 (0x3705), TAG Type: 3 (0x0003) -> PidTagAttachMethod | value: 1
+									MAPI ATTR ID: 14087 (0x3707), TAG Type: 30 (0x1e) -> PidTagAttachLongFilename (0x001F) | value: image001.jpg
+									MAPI ATTR ID: 14091 (0x370b), TAG Type: 3 (0x0003) -> PidTagRenderingPosition | value: -1 (-1 e de fapt 0xffffff, decoded as signed) ->  0xFFFFFFFF indicates a hidden attachment that is not to be rendered in the main text
+									MAPI ATTR ID: 14094 (0x370e), TAG Type: 30 (0x001e) -> PidTagAttachMimeTag | value: image/jpeg
+									MAPI ATTR ID: 14098 (0x3712), TAG Type: 30 (0x1e) -> PidTagAttachContentId | value: image001.jpg@01D49162.DB2DC760
+									MAPI ATTR ID: 14100 (0x3714), TAG Type: 3 (0x3) -> PidTagAttachFlags | value: 4 (4 means attRenderedInBody)
+									MAPI ATTR ID: 32762 (0x7ffa), TAG Type: 3 (0x3) -> PidTagAttachmentLinkId| value: 0 (must be 0, if is not overwriten)
+									MAPI ATTR ID: 32763 (0x7ffb), TAG Type: 64 (0x0040) ->	PidTagExceptionStartTime|value: 915151392000000000
+									MAPI ATTR ID: 32764 (0x7ffc), TAG Type: 64 (0x40) -> PidTagExceptionEndTime | value: 915151392000000000
+									MAPI ATTR ID: 32765 (0x7ffd), TAG Type: 3 (0x3) -> PidTagAttachmentFlags | value: 8
+									MAPI ATTR ID: 32766 (0x7ffe), TAG Type: 11 (0xb) -> PidTagAttachmentHidden| value: true
+									MAPI ATTR ID: 32767 (0x7fff), TAG Type: 11 (0xb) -> PidTagAttachmentContactPhoto | value: false
+									MAPI ATTR ID: 3617 (0x0e21), TAG Type: 3 (0x3) -> PidTagAttachNumber | value: 956325
+									MAPI ATTR ID: 4088 (0x0ff8), TAG Type: 258 (0x0102) -> PidTagMappingSignature | value: 28 78 81 160 198 126 89 69 167 247 18 51 167 63 155 237
+									MAPI ATTR ID: 4090 (0x0ffa), TAG Type: 258 (0x0102) -> ??? | value: 28 78 81 160 198 126 89 69 167 247 18 51 167 63 155 237
+									MAPI ATTR ID: 4094 (0xffe), TAG Type: 3 (0x3) -> PidTagObjectType | value: 7 (7 means Attachment object)
+									MAPI ATTR ID: 13325 (0x340d), TAG Type: 3 (0x3) -> PidTagStoreSupportMask | value: 245710845 ( Indicates whether string properties within the .msg file
+										are Unicode-encoded.)
+									MAPI ATTR ID: 13327 (0x340f), TAG Type: 3 (0x3) -> ??? | value: 245710845
 				*/
 
 				var err error
@@ -271,13 +277,13 @@ func Decode(data []byte) (*Data, error) {
 				if err != nil {
 					return nil, err
 				}
-				//fmt.Printf("%v / %x\r\n", obj.Name, obj.Name)
-				//fmt.Printf("%v", obj.Data)
+				// fmt.Printf("%v / %x\r\n", obj.Name, obj.Name)
+				// fmt.Printf("%v", obj.Data)
 			} else {
 				attachment.addAttr(obj)
 			}
 
-			//fmt.Printf("TNEF Attach Level Flag ID: %x Value: %v\r\n\r\n", obj.Name, string(obj.Data))
+			// fmt.Printf("TNEF Attach Level Flag ID: %x Value: %v\r\n\r\n", obj.Name, string(obj.Data))
 		} else if obj.Name == ATTMAPIPROPS {
 			var err error
 			tnef.Attributes, err = decodeMapi(obj.Data)
@@ -294,11 +300,11 @@ func Decode(data []byte) (*Data, error) {
 					tnef.BodyHTML = attr.Data
 
 				default:
-					//fmt.Printf("MAPI Flag: %x Value: %v\r\n\r\n", attr.Name, string(attr.Data))
+					// fmt.Printf("MAPI Flag: %x Value: %v\r\n\r\n", attr.Name, string(attr.Data))
 				}
 			}
 		} else {
-			//fmt.Printf("TNEF Flag: %x Value: %s\r\n\r\n", obj.Name, obj.Data)
+			// fmt.Printf("TNEF Flag: %x Value: %s\r\n\r\n", obj.Name, obj.Data)
 		}
 	}
 
@@ -310,7 +316,11 @@ func Decode(data []byte) (*Data, error) {
  * MessageProps = attrLevelMessage idMsgProps Length Data Checksum
  */
 
-func decodeTNEFObject(data []byte) (object tnefObject) {
+func decodeTNEFObject(data []byte) (object tnefObject, ok bool) {
+	if len(data) < 9 {
+		return
+	}
+
 	offset := 0
 
 	object.Level = byteToInt(data[offset : offset+1])
@@ -321,12 +331,17 @@ func decodeTNEFObject(data []byte) (object tnefObject) {
 	offset += 2
 	attLength := byteToInt(data[offset : offset+4])
 	offset += 4
+
+	if offset+attLength+2 > len(data) {
+		return
+	}
 	object.Data = data[offset : offset+attLength]
 	offset += attLength
-	//checksum := byteToInt(data[offset : offset+2])
+	// checksum := byteToInt(data[offset : offset+2])
 	offset += 2
 
 	object.Length = offset
+	ok = true
 	return
 }
 
@@ -338,6 +353,7 @@ func decodeTNEFObject(data []byte) (object tnefObject) {
  * @param  {[type]} data []byte)       (MsgPropertyList [description]
  * @return {[type]}      [description]
  */
+//nolint:funlen,gocyclo
 func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 	list := MsgPropertyList{Values: []*MsgPropertyValue{}}
@@ -362,21 +378,21 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 	offset += 4
 
-	//fmt.Printf("Count values: %v\r\n", countValues)
+	// fmt.Printf("Count values: %v\r\n", countValues)
 
-	//MsgPropertyValue = MsgPropertyTag MsgPropertyData
+	// MsgPropertyValue = MsgPropertyTag MsgPropertyData
 
 	for {
 		v := MsgPropertyValue{}
 
-		//MsgPropertyTag = MsgPropertyType MsgPropertyId [NamedPropSpec]
+		// MsgPropertyTag = MsgPropertyType MsgPropertyId [NamedPropSpec]
 		v.TagType = leReader.Uint16(data[offset : offset+2]) // 2 bytes
-		//fmt.Printf("\r\nTAG Type: %#x Dump:\r\n%v", v.TagType, hex.Dump(data[offset:offset+2]))
+		// fmt.Printf("\r\nTAG Type: %#x Dump:\r\n%v", v.TagType, hex.Dump(data[offset:offset+2]))
 		offset += 2
 
 		// tagId is MAPI Property
 		v.TagId = leReader.Uint16(data[offset : offset+2]) // 2 bytes
-		//fmt.Printf("\r\nTag ID: %#x Dump:\r\n%v", v.TagId, hex.Dump(data[offset:offset+2]))
+		// fmt.Printf("\r\nTag ID: %#x Dump:\r\n%v", v.TagId, hex.Dump(data[offset:offset+2]))
 		offset += 2
 
 		if v.TagId >= 0x8000 {
@@ -411,16 +427,16 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 		v.DataCount = 1
 
-		//startValueIdx := offset
+		// startValueIdx := offset
 
 		switch v.TagType {
-		case 0x0001: //NULL
-		case 0x0002: //Int16
+		case 0x0001: // NULL
+		case 0x0002: // Int16
 			v.DataType = "int16"
 			// int16  - 2 bytes + 2 padding
 			v.Data = leReader.Int16(data[offset : offset+2])
 			offset += 4
-		case 0x1002: //TypeMVInt16
+		case 0x1002: // TypeMVInt16
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
 			var tmp []int16
@@ -436,11 +452,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Int16.String()
-		case 0x0003: //TypeInt32
+		case 0x0003: // TypeInt32
 			v.Data = leReader.Int32(data[offset : offset+4]) // has padd x00 at the end
 			offset += 4
 			v.DataType = reflect.Int32.String()
-		case 0x1003: //TypeMVInt32
+		case 0x1003: // TypeMVInt32
 			tmp := []int32{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -450,11 +466,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Int32.String()
-		case 0x0004: //TypeFlt32
+		case 0x0004: // TypeFlt32
 			v.Data = leReader.Float32(data[offset : offset+4])
 			offset += 4
 			v.DataType = reflect.Float32.String()
-		case 0x1004: //TypeMVFlt32
+		case 0x1004: // TypeMVFlt32
 			tmp := []float32{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -464,11 +480,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Float32.String()
-		case 0x0005: //TypeFlt64
+		case 0x0005: // TypeFlt64
 			v.Data = leReader.Float64(data[offset : offset+8])
 			offset += 8
 			v.DataType = reflect.Float64.String()
-		case 0x1005: //TypeMVFlt64
+		case 0x1005: // TypeMVFlt64
 			tmp := []float64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -478,11 +494,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Float64.String()
-		case 0x0006: //TypeCurrency  Signed 64-bit
+		case 0x0006: // TypeCurrency  Signed 64-bit
 			v.Data = leReader.Int64(data[offset : offset+8]) // has padd x00 at the end
 			offset += 8
 			v.DataType = reflect.Int64.String()
-		case 0x1006: //TypeMVCurrency  Signed 64-bit
+		case 0x1006: // TypeMVCurrency  Signed 64-bit
 			tmp := []int64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -492,11 +508,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Int64.String()
-		case 0x0007: //TypeAppTime
+		case 0x0007: // TypeAppTime
 			v.Data = leReader.Float64(data[offset : offset+8]) // has padd x00 at the end
 			offset += 8
 			v.DataType = reflect.Float64.String()
-		case 0x1007: //TypeMVAppTime
+		case 0x1007: // TypeMVAppTime
 			tmp := []float64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -506,17 +522,18 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Float64.String()
-		case 0x000B: //TypeBoolean - 16 bits
+		case 0x000B: // TypeBoolean - 16 bits
 			v.Data = leReader.Int16(data[offset:offset+4]) > 0 // has padd x00 at the end
 			offset += 4
-		case 0x000D: //TypeObject -> unicode
+		case 0x000D: // TypeObject -> unicode
 			noOfValues := leReader.Uint32(data[offset : offset+4]) // should be always 1
 			offset += 4
 			tmp := make([][]byte, noOfValues)
 			for i := 0; i < int(noOfValues); i++ {
 				bytesLength := int(leReader.Uint32(data[offset : offset+4]))
 
-				//fmt.Printf("String data length: %v Extracted Value: %v", stringLength, hex.Dump(data[offset:offset+4]))
+				// fmt.Printf("String data length: %v Extracted Value: %v",
+				// stringLength, hex.Dump(data[offset:offset+4]))
 				offset += 4
 
 				/*
@@ -539,11 +556,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 			v.Data = tmp[0]
 			v.DataType = "object"
-		case 0x0014: //TypeInt64
+		case 0x0014: // TypeInt64
 			v.Data = leReader.Int64(data[offset : offset+8]) // has padd x00 at the end
 			offset += 8
 			v.DataType = reflect.Int64.String()
-		case 0x1014: //TypeMVInt64
+		case 0x1014: // TypeMVInt64
 			tmp := []int64{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -553,7 +570,8 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.Data = tmp
 			v.DataType = reflect.Int64.String()
-		case 0x001E, 0x101E: //TypeString8, TypeMVString8 -  8-bit character string with terminating null character. - multibyte character set (MBCS):
+		case 0x001E, 0x101E: // TypeString8, TypeMVString8 -  8-bit character string with terminating null character.
+			// - multibyte character set (MBCS):
 			// ATTOEMCODEPAGE???
 			noOfValues := leReader.Uint32(data[offset : offset+4]) // should be always 1
 			offset += 4
@@ -562,7 +580,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			for i := 0; i < int(noOfValues); i++ {
 				stringLength := int(leReader.Uint32(data[offset : offset+4]))
 
-				//fmt.Printf("String data length: %v Extracted Value: %v", stringLength, hex.Dump(data[offset:offset+4]))
+				// fmt.Printf("String data length: %v Extracted Value: %v", stringLength, hex.Dump(data[offset:offset+4]))
 				offset += 4
 				/**
 				 * try to read stringLength chars and than calculate the number of bytes read
@@ -571,7 +589,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				tmpStr := data[offset : offset+stringLength]
 				offset += stringLength
 
-				//fmt.Println("String: ", string(tmpStr))
+				// fmt.Println("String: ", string(tmpStr))
 				/*
 
 					rdr := bytes.NewReader(data[offset:])
@@ -605,14 +623,16 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			}
 			v.DataType = reflect.String.String()
 		case 0x001F, 0x101F:
-			//TypeUnicode (unicode utf16 LE string), TypeMVUnicode (array of unicode utf16 LE string)  - UTF-16LE or variant character string with terminating 2-byte null character.
+			// TypeUnicode (unicode utf16 LE string), TypeMVUnicode (array of unicode utf16 LE string)
+			// - UTF-16LE or variant character string with terminating 2-byte null character.
 			noOfValues := leReader.Uint32(data[offset : offset+4])
 			offset += 4
 
 			tmp := make([]string, noOfValues)
 			for i := 0; i < int(noOfValues); i++ {
 				stringLength := int(leReader.Uint32(data[offset : offset+4])) // no of bytes to read
-				//fmt.Printf("String data length: %v Extracted Value: %v", stringLength, hex.Dump(data[offset:offset+4]))
+				// fmt.Printf("String data length: %v Extracted Value: %v", stringLength,
+				// hex.Dump(data[offset:offset+4]))
 				offset += 4
 
 				/**
@@ -624,11 +644,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 				// reads a multiple of 4; the rest must be padd it with 0x00
 				padd := 4 - (bytesRead % 4)
-				//fmt.Printf("\r\nString Length To Read: %v Runes: %v", stringLength, utf8.RuneCountInString(tmpStr))
-				//fmt.Printf("\r\nString bytes read: %v", bytesRead)
+				// fmt.Printf("\r\nString Length To Read: %v Runes: %v", stringLength, utf8.RuneCountInString(tmpStr))
+				// fmt.Printf("\r\nString bytes read: %v", bytesRead)
 				if padd < 4 {
 					offset += padd
-					//fmt.Printf("\r\nString padd added: %v",padd)
+					// fmt.Printf("\r\nString padd added: %v",padd)
 				}
 
 				tmp[i] = strings.TrimRight(tmpStr, "\x00")
@@ -644,10 +664,10 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				v.Data = tmp
 			}
 			v.DataType = reflect.String.String()
-		case 0x0040: //TypeSystime - FILETIME (a PtypTime value, as specified in [MS-OXCDATA] section 2.11.1)
+		case 0x0040: // TypeSystime - FILETIME (a PtypTime value, as specified in [MS-OXCDATA] section 2.11.1)
 			v.Data = leReader.Uint64(data[offset : offset+8])
 			offset += 8
-		case 0x1040: //TypeMVSystime
+		case 0x1040: // TypeMVSystime
 			noOfValues := leReader.Uint32(data[offset : offset+4])
 			offset += 4
 			v.DataCount = noOfValues
@@ -657,11 +677,11 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 8
 			}
 			v.Data = tmp
-		case 0x0048: //TypeCLSID -  OLE GUID - 16 bytes
+		case 0x0048: // TypeCLSID -  OLE GUID - 16 bytes
 			v.Data = leReader.String(data[offset : offset+16])
 			v.DataCount = 1
 			offset += 16
-		case 0x1048: //TypeMVCLSID
+		case 0x1048: // TypeMVCLSID
 			tmp := []string{}
 			v.DataCount = leReader.Uint32(data[offset : offset+4])
 			offset += 4
@@ -670,7 +690,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 				offset += 16
 			}
 			v.Data = tmp
-		case 0x0102, 0x1102: //TypeBinary, /TypeMVBinary
+		case 0x0102, 0x1102: // TypeBinary, /TypeMVBinary
 			noOfValues := leReader.Uint32(data[offset : offset+4]) // should be always 1
 			offset += 4
 
@@ -678,7 +698,7 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 
 			for i := 0; i < int(noOfValues); i++ {
 				binaryLength := leReader.Uint32(data[offset : offset+4])
-				//fmt.Printf("Binary data length: %v Extracted Value: %v", binaryLength, hex.Dump(data[offset:offset+4]))
+				// fmt.Printf("Binary data length: %v Extracted Value: %v", binaryLength, hex.Dump(data[offset:offset+4]))
 				offset += 4
 
 				tmp[i] = data[offset : offset+int(binaryLength)]
@@ -705,7 +725,8 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 			return list, fmt.Errorf("decodeMsgPropertyList: data type %#x is invalid", v.TagType)
 		}
 
-		//fmt.Printf("\r\n\r\nTTag ID : %#x\r\nTag Type: %#x,\r\nTag Data: %v\r\nExtracted value:\r\n%v\r\n", v.TagId, v.TagType, v.Data, hex.Dump(data[startValueIdx:offset]))
+		// fmt.Printf("\r\n\r\nTTag ID : %#x\r\nTag Type: %#x,\r\nTag Data: %v\r\nExtracted value:\r\n%v\r\n",
+		// v.TagId, v.TagType, v.Data, hex.Dump(data[startValueIdx:offset]))
 
 		list.Values = append(list.Values, &v)
 

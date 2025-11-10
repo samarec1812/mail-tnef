@@ -118,15 +118,6 @@ func TestAttachments(t *testing.T) {
 	}
 }
 
-func inStringSlice(list []string, str string) bool {
-	for _, item := range list {
-		if item == str {
-			return true
-		}
-	}
-	return false
-}
-
 func errorContains(out error, want string) bool {
 	if out == nil {
 		return want == ""

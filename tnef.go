@@ -754,11 +754,9 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 		copy(names, att.Names)
 		for _, prop := range att.Properties.Values {
 			if prop.TagId == MAPIAttachMethod {
-				fmt.Println("METHOD: ", prop.TagId, prop.Data)
 				info.Method = prop.Data != 0
 			}
 			if prop.TagId == MAPIAttachSize {
-				fmt.Printf("Size: #1: %v, #2: %v\n", prop.Data, att.Size)
 				info.Size = fmt.Sprint(prop.Data)
 			}
 			if prop.TagId == MAPIAttachLongFilename {
@@ -784,7 +782,6 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 			info.Size = fmt.Sprint(att.Size)
 		}
 		res = append(res, info)
-		fmt.Println("Title: ", att.Names)
 	}
 	return res
 }

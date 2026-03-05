@@ -6,6 +6,7 @@ import (
 	_ "encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
@@ -117,6 +118,7 @@ type MsgPropertyList struct {
 // Data contains the various data from the extracted TNEF file.
 type Data struct {
 	Type         int
+	Pos          int
 	Body         []byte
 	BodyHTML     []byte
 	Attachments  []*Attachment
@@ -302,11 +304,10 @@ func Decode(data []byte) (*Data, error) {
 				case MAPIBodyHTML:
 					tnef.BodyHTML = attr.Data
 					tnef.Type = AdBodyHTML
-					fmt.Println("TYPE: ", tnef.Type)
 				case MAPIRtfCompressed:
-					//tnef.Body = attr.Data
-					//attachment.Type = AdBodyRTF
-					//fmt.Println("TYPE: ", tnef.Type)
+					// tnef.Body = attr.Data
+					// attachment.Type = AdBodyRTF
+					// fmt.Println("TYPE: ", tnef.Type)
 				default:
 					// fmt.Printf("MAPI Flag: %x Value: %v\r\n\r\n", attr.Name, string(attr.Data))
 				}
@@ -817,4 +818,39 @@ func putNames(names []string, newName string) {
 			break
 		}
 	}
+}
+
+func (dt Data) Seek(offset, seekMode int) (int, error) {
+	switch seekMode {
+	case io.SeekStart:
+		dt.Pos = offset
+	case io.SeekCurrent:
+		dt.Pos += offset
+	case io.SeekEnd:
+		dt.Pos = len(dt.Body) + offset
+	default:
+		return 0, fmt.Errorf("invalid whence")
+	}
+
+	if dt.Pos < 0 {
+		return 0, fmt.Errorf("negative offset")
+	}
+
+	if dt.Pos > len(dt.Body) {
+		return 0, fmt.Errorf("offset out of range")
+	}
+
+	return dt.Pos, nil
+}
+
+func (dt Data) Read(size int) ([]byte, error) {
+	if dt.Pos >= len(dt.Body) {
+		return nil, io.EOF
+	}
+
+	b := make([]byte, size)
+	n := copy(b, dt.Body[dt.Pos:])
+
+	dt.Pos += n
+	return b, nil
 }

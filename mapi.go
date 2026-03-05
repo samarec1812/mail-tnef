@@ -567,3 +567,9 @@ const (
 
 	MAPITagAttachmentHidden = 0x7FFE
 )
+
+const (
+	AdBodyTXT  = 1
+	AdBodyRTF  = 2
+	AdBodyHTML = 3
+)

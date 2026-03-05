@@ -73,6 +73,7 @@ type Attachment struct {
 	Properties MsgPropertyList
 	Names      []string
 	Size       int
+	Pos        int
 }
 
 /**
@@ -115,6 +116,7 @@ type MsgPropertyList struct {
 
 // Data contains the various data from the extracted TNEF file.
 type Data struct {
+	Type         int
 	Body         []byte
 	BodyHTML     []byte
 	Attachments  []*Attachment
@@ -172,6 +174,7 @@ func (a *Attachment) addAttr(obj tnefObject) {
 	case ATTATTACHDATA:
 		a.Data = obj.Data
 		a.Size = len(a.Data)
+		a.Pos += len(a.Data)
 	case ATTATTACHTRANSPORTFILENAME:
 		putNames(a.Names, string(obj.Data))
 	default:
@@ -237,7 +240,6 @@ func Decode(data []byte) (*Data, error) {
 				Names: make([]string, maxCountNames),
 			}
 			tnef.Attachments = append(tnef.Attachments, attachment)
-
 		} else if obj.Level == lvlAttachment {
 			/*
 				AttachAttribute = attrLevelAttachment idAttachAttr Length Data Checksum
@@ -281,6 +283,7 @@ func Decode(data []byte) (*Data, error) {
 				// fmt.Printf("%v", obj.Data)
 			} else {
 				attachment.addAttr(obj)
+				// fmt.Println("Offset: ", attachment.Pos)
 			}
 
 			// fmt.Printf("TNEF Attach Level Flag ID: %x Value: %v\r\n\r\n", obj.Name, string(obj.Data))
@@ -298,7 +301,12 @@ func Decode(data []byte) (*Data, error) {
 					tnef.Body = attr.Data
 				case MAPIBodyHTML:
 					tnef.BodyHTML = attr.Data
-
+					tnef.Type = AdBodyHTML
+					fmt.Println("TYPE: ", tnef.Type)
+				case MAPIRtfCompressed:
+					//tnef.Body = attr.Data
+					//attachment.Type = AdBodyRTF
+					//fmt.Println("TYPE: ", tnef.Type)
 				default:
 					// fmt.Printf("MAPI Flag: %x Value: %v\r\n\r\n", attr.Name, string(attr.Data))
 				}
@@ -739,7 +747,9 @@ func decodeMsgPropertyList(data []byte) (MsgPropertyList, error) {
 }
 
 type AttachmentsInfo struct {
+	Type     int
 	Size     string
+	Pos      int
 	Method   bool
 	Name     string
 	MapNames map[string]string
@@ -765,8 +775,17 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 			if prop.TagId == MAPIAttachTransportName {
 				putNames(names, prop.Data.(string))
 			}
+			if prop.TagId == MAPIRtfCompressed {
+				info.Type = AdBodyRTF
+				fmt.Println("PROP RTF")
+			}
+			if prop.TagId == MAPIBodyHTML {
+				info.Type = AdBodyHTML
+				fmt.Println("PROP HTML")
+			}
 		}
-
+		fmt.Println("GET ATTR: ", att.GetMapiAttribute(MAPIBodyHTML))
+		info.Type = dt.Type
 		lastName := -1
 		for i := 0; i < maxCountNames; i++ {
 			if names[i] != "" {
@@ -781,6 +800,11 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 		if info.Size == "" {
 			info.Size = fmt.Sprint(att.Size)
 		}
+
+		if info.Pos < 1 {
+			info.Pos = att.Pos
+		}
+
 		res = append(res, info)
 	}
 	return res

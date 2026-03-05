@@ -94,8 +94,6 @@ func TestAttachments(t *testing.T) {
 				fmt.Println(err)
 				return
 			}
-			arr := out.GetAttachmentsInfo()
-			fmt.Println(arr)
 
 			if len(out.Attachments) != len(tt.wantAttachments) {
 				t.Errorf("wrong length; want %v, got %v",

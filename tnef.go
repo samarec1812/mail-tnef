@@ -754,6 +754,7 @@ type AttachmentsInfo struct {
 	Method   bool
 	Name     string
 	MapNames map[string]string
+	Body     []byte
 }
 
 func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
@@ -761,7 +762,7 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 
 	for _, att := range dt.Attachments {
 		names := make([]string, len(att.Names))
-		info := AttachmentsInfo{MapNames: make(map[string]string, len(att.Names))}
+		info := AttachmentsInfo{MapNames: make(map[string]string, len(att.Names)), Body: make([]byte, len(att.Data))}
 		copy(names, att.Names)
 		for _, prop := range att.Properties.Values {
 			if prop.TagId == MAPIAttachMethod {
@@ -805,6 +806,8 @@ func (dt Data) GetAttachmentsInfo() []AttachmentsInfo {
 		if info.Pos < 1 {
 			info.Pos = att.Pos
 		}
+
+		copy(info.Body, att.Data) // save body
 
 		res = append(res, info)
 	}
